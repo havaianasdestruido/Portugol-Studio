@@ -162,12 +162,12 @@ public class Lancador {
 
     public void maximize(boolean maximaze) 
     {
-        GraphicsDevice monitorAtual = MouseInfo.getPointerInfo().getDevice();
+        GraphicsDevice monitorAtual = obterMonitorAtual();
         
         if(maximaze){
             Dimension d = frame.getSize();
             setOlderSize(d);
-            Rectangle newBounds = configurarMaximizar(); 
+            Rectangle newBounds = configurarMaximizar(monitorAtual);
             frame.setBounds(newBounds); 
             setActualSize(newBounds.getSize()); 
         }else{
@@ -175,48 +175,67 @@ public class Lancador {
             frame.setExtendedState(JFrame.NORMAL);
             frame.setSize(d);
             
-            //Centraliza janela no monitor
-            GraphicsConfiguration gcc[] = monitorAtual.getConfigurations();
-            Rectangle screenSize = new Rectangle(gcc[0].getBounds().width, gcc[0].getBounds().height);
-            frame.setLocation(gcc[0].getBounds().x +(screenSize.width-d.width)/2, gcc[0].getBounds().y +(screenSize.height-d.height)/2);
+            // Centraliza a janela no monitor disponível, mesmo quando não há ponteiro sobre uma tela.
+            Rectangle bounds = monitorAtual.getDefaultConfiguration().getBounds();
+            frame.setLocation(bounds.x + (bounds.width - d.width) / 2, bounds.y + (bounds.height - d.height) / 2);
             
             setActualSize(d);
         }
         maximazed = maximaze;
     }
-    
-    public void snapToEdge(MouseEvent me) {       
-        if(maximazed) maximazed = false;
-        
-        GraphicsConfiguration gcc[] = monitorPrincipal.getConfigurations();
-        Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(gcc[0]);        
-        Rectangle bounds = MouseInfo.getPointerInfo().getDevice().getDefaultConfiguration().getBounds();
-        
-        //Topo, maximiza
-    	if(me.getYOnScreen() <= screenInsets.top && me.getXOnScreen() < monitorPrincipal.getDefaultConfiguration().getBounds().width-20){
-        	maximize(true);
-        }//Lado Direito
-        else if(me.getXOnScreen() >= (monitorPrincipal.getDefaultConfiguration().getBounds().width) - 10){
-            Rectangle newBounds = new Rectangle(bounds.width - (screenInsets.left + screenInsets.right), bounds.height - (screenInsets.top + screenInsets.bottom));
-            newBounds.width = newBounds.width/2;
-            newBounds.x = (int) Math.round((bounds.getWidth()+(screenInsets.left+screenInsets.right))/2);
-            newBounds.y = screenInsets.top;
 
-            getJFrame().setBounds(newBounds); 
-            setActualSize(newBounds.getSize()); 
-        	
-        }//Lado Esquerdo
-        else if(me.getXOnScreen() <= screenInsets.left){
-            Rectangle newBounds = new Rectangle(bounds.width - (screenInsets.left + screenInsets.right), bounds.height - (screenInsets.top + screenInsets.bottom));
-            newBounds.width = newBounds.width/2;
-            newBounds.x = screenInsets.left;
-            newBounds.y = screenInsets.top;
-            
-            getJFrame().setBounds(newBounds); 
-            setActualSize(newBounds.getSize()); 
+    private GraphicsDevice obterMonitorAtual()
+    {
+        try
+        {
+            java.awt.PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+            if (pointerInfo != null && pointerInfo.getDevice() != null)
+            {
+                return pointerInfo.getDevice();
+            }
+        }
+        catch (RuntimeException excecao)
+        {
+            LOGGER.log(Level.FINE, "Não foi possível identificar o monitor sob o ponteiro", excecao);
+        }
+
+        if (frame != null && frame.getGraphicsConfiguration() != null)
+        {
+            return frame.getGraphicsConfiguration().getDevice();
+        }
+        return GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+    }
+
+    public void snapToEdge(MouseEvent me) {
+        if (me == null) return;
+        if(maximazed) maximazed = false;
+
+        GraphicsConfiguration configuracao = obterMonitorAtual().getDefaultConfiguration();
+        Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(configuracao);
+        Rectangle bounds = configuracao.getBounds();
+        int localX = me.getXOnScreen() - bounds.x;
+        int localY = me.getYOnScreen() - bounds.y;
+        int usableWidth = bounds.width - screenInsets.left - screenInsets.right;
+        int usableHeight = bounds.height - screenInsets.top - screenInsets.bottom;
+
+        // Topo, maximiza
+        if(localY <= screenInsets.top && localX < bounds.width - 20){
+            maximize(true);
+        }// Lado Direito
+        else if(localX >= bounds.width - 10){
+            Rectangle newBounds = new Rectangle(bounds.x + screenInsets.left + usableWidth / 2,
+                    bounds.y + screenInsets.top, usableWidth / 2, usableHeight);
+            getJFrame().setBounds(newBounds);
+            setActualSize(newBounds.getSize());
+        }// Lado Esquerdo
+        else if(localX <= screenInsets.left){
+            Rectangle newBounds = new Rectangle(bounds.x + screenInsets.left,
+                    bounds.y + screenInsets.top, usableWidth / 2, usableHeight);
+            getJFrame().setBounds(newBounds);
+            setActualSize(newBounds.getSize());
         }
     }
-    
+
     public JFrame getJFrame()
     {
         return frame;
@@ -324,8 +343,7 @@ public class Lancador {
         return monitorPrincipal;
     }
     
-    private static Rectangle configurarMaximizar(){
-        GraphicsDevice monitorAtual = MouseInfo.getPointerInfo().getDevice();
+    private static Rectangle configurarMaximizar(GraphicsDevice monitorAtual){
         Rectangle bounds = monitorAtual.getDefaultConfiguration().getBounds();
         GraphicsConfiguration gcc[] = monitorAtual.getConfigurations();
         Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(gcc[0]);
