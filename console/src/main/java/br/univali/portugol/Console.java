@@ -104,6 +104,7 @@ public final class Console implements Entrada, Saida, ObservadorExecucao
             {
                 aguardar(CodigoEncerramento.ERRO);
             }
+            System.exit(CodigoEncerramento.ERRO.ordinal());
         }
     }
 
@@ -138,6 +139,7 @@ public final class Console implements Entrada, Saida, ObservadorExecucao
             {
                 aguardar(CodigoEncerramento.ERRO);
             }
+            System.exit(CodigoEncerramento.ERRO.ordinal());
         }
     }
 
@@ -504,6 +506,7 @@ public final class Console implements Entrada, Saida, ObservadorExecucao
     @Override
     public void execucaoEncerrada(Programa programa, ResultadoExecucao resultadoExecucao)
     {
+        CodigoEncerramento codigo = CodigoEncerramento.NORMAL;
         switch (resultadoExecucao.getModoEncerramento())
         {
             case NORMAL:
@@ -520,19 +523,20 @@ public final class Console implements Entrada, Saida, ObservadorExecucao
                     System.out.println("\nO programa foi interrompido");
                     System.out.flush();
                     aguardar(CodigoEncerramento.NORMAL);
-                }                
+                }
                 break;
             case ERRO:
+                codigo = CodigoEncerramento.ERRO;
+                System.err.println("\nErro de execução: " + resultadoExecucao.getErro().getMensagem() + "\nLinha: " + resultadoExecucao.getErro().getLinha() + ", Coluna: " + resultadoExecucao.getErro().getColuna());
+                System.err.flush();
                 if (aguardarParaSair)
                 {
-                    System.err.println("\nErro de execução: " + resultadoExecucao.getErro().getMensagem() + "\nLinha: " + resultadoExecucao.getErro().getLinha() + ", Coluna: " + resultadoExecucao.getErro().getColuna());
-                    System.err.flush();
                     aguardar(CodigoEncerramento.ERRO);
-                }                
+                }
                 break;
         }
-        
-        System.exit(CodigoEncerramento.NORMAL.ordinal());
+
+        System.exit(codigo.ordinal());
     }
 
     private String lerArquivo(File arquivo) throws Exception

@@ -911,22 +911,37 @@ public final class AbaCodigoFonte extends Aba implements PortugolDocumentoListen
     }
 
     private void salvaArquivo() {
+        final PortugolDocumento documento = editor.getPortugolDocumento();
+        if (!podeSalvar || documento.getFile() == null) {
+            // Never present an enabled Save action that silently does nothing.
+            acaoSalvarComo.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "Salvar como"));
+            return;
+        }
 
-        if (podeSalvar) {
-            try {
-                final PortugolDocumento documento = editor.getPortugolDocumento();
-                if (documento.getFile() != null) {
-                    String texto = documento.getText(0, documento.getLength());
-                    texto = inserirInformacoesPortugolStudio(texto);
-                    PortugolStudio.getInstancia().salvarComoRecente(getArquivoComExtensao(documento.getFile()));
-                    FileHandle.save(texto, getArquivoComExtensao(documento.getFile()));
-                    documento.setChanged(false);
-                }
-            } catch (BadLocationException ex) {
-                PortugolStudio.getInstancia().getTratadorExcecoes().exibirExcecao(ex);
-            } catch (Exception ex) {
-                PortugolStudio.getInstancia().getTratadorExcecoes().exibirExcecao(ex);
-            }
+        File arquivo = getArquivoComExtensao(documento.getFile());
+        try {
+            String texto = documento.getText(0, documento.getLength());
+            texto = inserirInformacoesPortugolStudio(texto);
+            FileHandle.save(texto, arquivo);
+            documento.setChanged(false);
+            PortugolStudio.getInstancia().salvarComoRecente(arquivo);
+        } catch (BadLocationException ex) {
+            LOGGER.log(Level.WARNING, "Não foi possível obter o conteúdo do documento para salvar", ex);
+            exibirFalhaSalvamento(arquivo);
+        } catch (Exception ex) {
+            // Keep the document dirty and avoid exposing a raw Java stack trace to the user.
+            LOGGER.log(Level.WARNING, "Não foi possível salvar o arquivo " + arquivo, ex);
+            exibirFalhaSalvamento(arquivo);
+        }
+    }
+
+    private void exibirFalhaSalvamento(File arquivo) {
+        String caminho = arquivo == null ? "(desconhecido)" : arquivo.getAbsolutePath();
+        int resposta = JOptionPane.showConfirmDialog(this,
+                "Não foi possível gravar em " + caminho + ". A pasta pode não existir, ou o arquivo pode estar protegido ou em uso.\nDeseja escolher outro local para salvar?",
+                "Falha ao salvar arquivo", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (resposta == JOptionPane.YES_OPTION && acaoSalvarComo != null) {
+            acaoSalvarComo.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "Salvar como"));
         }
     }
 
@@ -2565,7 +2580,8 @@ public final class AbaCodigoFonte extends Aba implements PortugolDocumentoListen
         painelSaida.getConsole().limparConsole();
         editor.desabilitarCentralizacaoCodigoFonte();
         painelSaida.getAbaMensagensCompilador().limpar();
-        painelSaida.getAbaMensagensCompilador().selecionar();
+        // A newly opened/reset source tab should expose the console, where execution output appears.
+        painelSaida.selecionaConsole();
 
         editor.getPortugolDocumento().setChanged(true);
         getCabecalho().setTitulo("Sem título" + numeroDocumento + "*");

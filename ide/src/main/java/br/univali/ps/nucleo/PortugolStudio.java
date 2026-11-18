@@ -915,7 +915,15 @@ public final class PortugolStudio
                     Lancador.getInstance().getJFrame().setLocationRelativeTo(null);
                     Lancador.getInstance().getJFrame().setVisible(true);
                     Lancador.getInstance().setOlderSize(new Dimension(800, 600));
-                    Lancador.getInstance().maximize(true);
+                    try
+                    {
+                        Lancador.getInstance().maximize(true);
+                    }
+                    catch (RuntimeException excecao)
+                    {
+                        // A falha ao maximizar é apenas cosmética e não deve impedir o IDE de iniciar.
+                        LOGGER.log(Level.WARNING, "Não foi possível maximizar a janela; mantendo o tamanho normal", excecao);
+                    }
                     
                     Lancador.getInstance().getJFrame().revalidate();
                     portugolCarregado = true;
